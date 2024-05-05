@@ -1,4 +1,4 @@
-import os
+from os.path import splitext, basename, join, exists, isdir
 
 from pyspark.sql import SparkSession
 from pathlib import Path
@@ -6,13 +6,13 @@ from sys import argv
 
 
 def csv_to_parquet(file: str, output_directory: str) -> None:
-    file_name = os.path.basename(file)
+    file_name = basename(file)
     if ".csv" not in file_name:
         raise ValueError(f"Only .csv files are accepted.")
-    stripped_extension = os.path.splitext(file_name)[0]
-    output_file = os.path.join(output_directory, f"{stripped_extension}.parquet")
+    stripped_extension = splitext(file_name)[0]
+    output_file = join(output_directory, f"{stripped_extension}.parquet")
 
-    if os.path.exists(output_file):
+    if exists(output_file):
         print(f"File `{output_file}` already exists, skipping.")
         return
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
         usage()
         exit(1)
 
-    if os.path.isdir(data_directory):
+    if isdir(data_directory):
         for path in find_all_csv_files(search_directory):
             csv_to_parquet(path, output_directory=data_directory)
     else:
