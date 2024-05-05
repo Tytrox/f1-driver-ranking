@@ -18,7 +18,7 @@ def csv_to_parquet(file: str, output_directory: str) -> None:
 
     spark = SparkSession.builder.getOrCreate()
 
-    csv_data = spark.read.csv(file, header=True)
+    csv_data = spark.read.csv(file, header=True, inferSchema=True)
     csv_data.write.parquet(
         output_file,
         compression="zstd", mode="overwrite")
