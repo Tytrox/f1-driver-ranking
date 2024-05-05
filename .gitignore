@@ -1,0 +1,4 @@
+*.parquet
+data/
+venv/
+.idea/
