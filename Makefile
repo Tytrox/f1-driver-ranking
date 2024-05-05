@@ -1,5 +1,5 @@
 
-data: ./csv_data/ convert_csv_to_parquet.py
+data: venv csv_data convert_csv_to_parquet.py
 	test -d data || mkdir data
 	source venv/bin/activate; python3 convert_csv_to_parquet.py csv_data; deactivate
 
