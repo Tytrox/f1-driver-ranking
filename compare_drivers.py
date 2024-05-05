@@ -18,9 +18,48 @@ milliseconds = "milliseconds"
 delta_to_teammate_milliseconds = "deltaToTeammateMillis"
 
 
+def get_rival_lists() -> DataFrame:
+    """
+    Generates a list of all drivers and their teammate rivals per race.
+
+    Adds one column:
+    - `rivalId`: the `driverId` of the rival teammate
+
+    Resulting Dataframe has the following columns:
+    - `raceId`
+    - `constructorId`
+    - `driverId`
+    - `rivalId`
+
+    :return: Dataframe with results (not persisted)
+    """
+
+    drivers_constructors_races = (
+        get_df_from_file(race_results_filename)
+        .select(col(race_id),
+                col(driver_id),
+                col(constructor_id))
+        .sort(col(race_id), col(driver_id))
+    )
+
+    rival_driver_setup = (
+        drivers_constructors_races
+        .withColumnRenamed(driver_id, rival_id)
+    )
+
+    rival_drivers = (
+        drivers_constructors_races
+        .join(rival_driver_setup, [race_id, constructor_id])
+        .where(col(driver_id) != col(rival_id))
+    )
+
+    return rival_drivers
+
+
 def get_rival_race_time_deltas() -> DataFrame:
     """
     Calculates the time delta (milliseconds) between teammates per race.
+    Sprint races are not considered.
 
     Adds two columns:
     - `rivalId`: the `driverId` of the rival teammate
@@ -96,26 +135,7 @@ def get_rival_race_time_deltas() -> DataFrame:
                            comparable_rival_race_time_milliseconds)
     )
 
-    drivers_constructors_races = (
-        comparable_race_times
-        .select(col(race_id),
-                col(driver_id),
-                col(constructor_id))
-        .groupBy(race_id, driver_id, constructor_id)
-        .count()
-        .drop("count")
-    )
-
-    rival_driver_setup = (
-        drivers_constructors_races
-        .withColumnRenamed(driver_id, rival_id)
-    )
-
-    rival_drivers = (
-        drivers_constructors_races
-        .join(rival_driver_setup, [race_id, constructor_id])
-        .where(col(driver_id) != col(rival_id))
-    )
+    rival_drivers = get_rival_lists()
 
     delta_to_rival_milliseconds = (
         rival_drivers
@@ -135,4 +155,5 @@ def get_rival_race_time_deltas() -> DataFrame:
 
 
 if __name__ == "__main__":
-    get_rival_race_time_deltas().show()
+    # get_rival_race_time_deltas().show()
+    get_rival_lists().show()
