@@ -1,4 +1,4 @@
-from functools import cache
+from functools import cache, lru_cache
 
 from spark_utilities import get_df_from_file
 from pyspark.sql import DataFrame
@@ -263,6 +263,7 @@ def get_rival_race_time_deltas() -> DataFrame:
     return delta_to_rival_milliseconds
 
 
+@lru_cache
 def get_mean_teammate_lap_delta(id_one: int, id_two: int) -> Optional[float]:
     """
     Calculates the mean delta per lap (in milliseconds) between two direct teammates.
