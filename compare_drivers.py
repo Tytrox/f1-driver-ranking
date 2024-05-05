@@ -91,10 +91,11 @@ def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
     return teammate_dictionary
 
 
-def shortest_teammate_paths(from_id: int, to_id: int) -> List[List[int]]:
+def teammate_paths(from_id: int, to_id: int, additional_depth=4) -> List[List[int]]:
     """
-    Returns all shortest-depth paths in the relation graph of teammates (the
-    `get_all_driver_teammates` dictionary) between two drivers.
+    Returns all paths in the relation graph of teammates (the `get_all_driver_teammates`
+    dictionary) between two drivers, which have length `additional_depth` more than the
+    shortest paths.
 
     Returns a list of paths, which are sequential lists of `driverId` teammates,
     ending in the `to_id` provided. Paths are guaranteed to be the same length.
@@ -102,13 +103,19 @@ def shortest_teammate_paths(from_id: int, to_id: int) -> List[List[int]]:
 
     :param from_id: the `driverId` of the origin teammate
     :param to_id: the `driverId` of the destination teammate
+    :param additional_depth: the quantity to add to the shortest path length when calculating
+                             maximum path depth
     :return: All shortest length paths between the two drivers
     """
 
     teammate_dictionary = get_all_driver_teammates()
 
+    success_paths = []
+    rival_missing = True
+
     if to_id in teammate_dictionary[from_id]:
-        return [[to_id]]
+        success_paths.append([[to_id]])
+        rival_missing = False
 
     paths = []
 
@@ -119,15 +126,17 @@ def shortest_teammate_paths(from_id: int, to_id: int) -> List[List[int]]:
     visited_teammates.add(from_id)
     next_visited_teammates = set(visited_teammates)
 
-    success_paths = []
-    rival_missing = True
+    extra_depth_visits = 0
 
-    while rival_missing:
+    while rival_missing or extra_depth_visits <= additional_depth:
 
         next_paths = []
 
         for path in paths:
             last_teammate = path[-1]
+
+            if last_teammate == to_id:
+                continue
 
             # Found a successful path to the query teammate at this depth
             if to_id in teammate_dictionary[last_teammate]:
@@ -135,8 +144,8 @@ def shortest_teammate_paths(from_id: int, to_id: int) -> List[List[int]]:
                 success_paths.append(path)
                 rival_missing = False
 
-            # Else add new paths to explore if not yet found a rival
-            elif rival_missing:
+            # Else add new paths to explore if not yet found a rival or reached max depth
+            elif rival_missing or extra_depth_visits <= additional_depth:
                 next_visited_teammates = next_visited_teammates.union(
                     set(teammate_dictionary[last_teammate].keys()))
 
@@ -148,6 +157,8 @@ def shortest_teammate_paths(from_id: int, to_id: int) -> List[List[int]]:
 
         paths = next_paths
         visited_teammates = next_visited_teammates
+        if not rival_missing:
+            extra_depth_visits += 1
 
     return success_paths
 
@@ -250,8 +261,12 @@ def get_rival_race_time_deltas() -> DataFrame:
     return delta_to_rival_milliseconds
 
 
+# def get_mean_teammate_delta(id_one: int, id_two: int) -> float:
+#     rival_race_time_deltas = get_rival_race_time_deltas().persist()
+
+
 if __name__ == "__main__":
     # get_rival_race_time_deltas().show()
     # get_race_teammate_rivals().show()
     get_df_from_file(drivers_filename).show()
-    print(shortest_teammate_paths(1, 10))
+    print(teammate_paths(1, 4))
