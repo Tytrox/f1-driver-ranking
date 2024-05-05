@@ -1,24 +1,25 @@
 from spark_utilities import get_df_from_file
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col
+from typing import Dict
 
 # Data file names
-drivers_filename = "drivers"
-lap_times_filename = "lap_times"
-race_results_filename = "results"
+drivers_filename: str = "drivers"
+lap_times_filename: str = "lap_times"
+race_results_filename: str = "results"
 
 # Column names
-race_id = "raceId"
-driver_id = "driverId"
-rival_id = "rivalId"
-constructor_id = "constructorId"
-laps = "laps"
-lap = "lap"
-milliseconds = "milliseconds"
-delta_to_teammate_milliseconds = "deltaToTeammateMillis"
+race_id: str = "raceId"
+driver_id: str = "driverId"
+rival_id: str = "rivalId"
+constructor_id: str = "constructorId"
+laps: str = "laps"
+lap: str = "lap"
+milliseconds: str = "milliseconds"
+delta_to_teammate_milliseconds: str = "deltaToTeammateMillis"
 
 
-def get_rival_lists() -> DataFrame:
+def get_race_teammate_rivals() -> DataFrame:
     """
     Generates a list of all drivers and their teammate rivals per race.
 
@@ -54,6 +55,37 @@ def get_rival_lists() -> DataFrame:
     )
 
     return rival_drivers
+
+
+def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
+    """
+    Calculates all the teammates of a given `driverId`, and how many
+    times they have been teammates.
+
+    :return: Dict, indexed by `driverId`, value of Dict, indexed by teammate `driverId`,
+             value of the number of times they have been teammates.
+    """
+
+    teammate_counts = (
+        get_race_teammate_rivals()
+        .drop(race_id)
+        .drop(constructor_id)
+        .groupBy(driver_id, rival_id)
+        .count()
+    )
+
+    teammate_dictionary = {}
+
+    teammate_counts_rows = [list(row) for row in teammate_counts.collect()]
+
+    for row in teammate_counts_rows:
+        if row[0] not in teammate_dictionary:
+            teammate_dictionary[row[0]] = {}
+
+        teammate_rivals = teammate_dictionary[row[0]]
+        teammate_rivals[row[1]] = row[2]
+
+    return teammate_dictionary
 
 
 def get_rival_race_time_deltas() -> DataFrame:
@@ -135,7 +167,7 @@ def get_rival_race_time_deltas() -> DataFrame:
                            comparable_rival_race_time_milliseconds)
     )
 
-    rival_drivers = get_rival_lists()
+    rival_drivers = get_race_teammate_rivals()
 
     delta_to_rival_milliseconds = (
         rival_drivers
@@ -156,4 +188,5 @@ def get_rival_race_time_deltas() -> DataFrame:
 
 if __name__ == "__main__":
     # get_rival_race_time_deltas().show()
-    get_rival_lists().show()
+    # get_race_teammate_rivals().show()
+    get_all_driver_teammates()
