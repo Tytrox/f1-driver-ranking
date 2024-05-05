@@ -1,7 +1,9 @@
+from functools import cache
+
 from spark_utilities import get_df_from_file
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col
-from typing import Dict
+from typing import Dict, List
 
 # Data file names
 drivers_filename: str = "drivers"
@@ -57,6 +59,7 @@ def get_race_teammate_rivals() -> DataFrame:
     return rival_drivers
 
 
+@cache
 def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
     """
     Calculates all the teammates of a given `driverId`, and how many
@@ -86,6 +89,67 @@ def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
         teammate_rivals[row[1]] = row[2]
 
     return teammate_dictionary
+
+
+def shortest_teammate_paths(from_id: int, to_id: int) -> List[List[int]]:
+    """
+    Returns all shortest-depth paths in the relation graph of teammates (the
+    `get_all_driver_teammates` dictionary) between two drivers.
+
+    Returns a list of paths, which are sequential lists of `driverId` teammates,
+    ending in the `to_id` provided. Paths are guaranteed to be the same length.
+    If no path exists, returns an empty list.
+
+    :param from_id: the `driverId` of the origin teammate
+    :param to_id: the `driverId` of the destination teammate
+    :return: All shortest length paths between the two drivers
+    """
+
+    teammate_dictionary = get_all_driver_teammates()
+
+    if to_id in teammate_dictionary[from_id]:
+        return [[to_id]]
+
+    paths = []
+
+    for teammate in teammate_dictionary[from_id].keys():
+        paths.append([teammate])
+
+    visited_teammates = set(teammate_dictionary[from_id].keys())
+    visited_teammates.add(from_id)
+    next_visited_teammates = set(visited_teammates)
+
+    success_paths = []
+    rival_missing = True
+
+    while rival_missing:
+
+        next_paths = []
+
+        for path in paths:
+            last_teammate = path[-1]
+
+            # Found a successful path to the query teammate at this depth
+            if to_id in teammate_dictionary[last_teammate]:
+                path.append(to_id)
+                success_paths.append(path)
+                rival_missing = False
+
+            # Else add new paths to explore if not yet found a rival
+            elif rival_missing:
+                next_visited_teammates = next_visited_teammates.union(
+                    set(teammate_dictionary[last_teammate].keys()))
+
+                for next_teammate in teammate_dictionary[last_teammate].keys():
+                    if next_teammate not in visited_teammates:
+                        new_path = list(path)
+                        new_path.append(next_teammate)
+                        next_paths.append(new_path)
+
+        paths = next_paths
+        visited_teammates = next_visited_teammates
+
+    return success_paths
 
 
 def get_rival_race_time_deltas() -> DataFrame:
@@ -189,4 +253,5 @@ def get_rival_race_time_deltas() -> DataFrame:
 if __name__ == "__main__":
     # get_rival_race_time_deltas().show()
     # get_race_teammate_rivals().show()
-    get_all_driver_teammates()
+    get_df_from_file(drivers_filename).show()
+    print(shortest_teammate_paths(1, 10))
