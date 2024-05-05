@@ -3,7 +3,7 @@ from functools import cache
 from spark_utilities import get_df_from_file
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Data file names
 drivers_filename: str = "drivers"
@@ -66,20 +66,20 @@ def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
     times they have been teammates.
 
     :return: Dict, indexed by `driverId`, value of Dict, indexed by teammate `driverId`,
-             value of the number of times they have been teammates.
+             value of the number of laps they have been teammates.
     """
 
-    teammate_counts = (
-        get_race_teammate_rivals()
+    teammate_lap_counts = (
+        get_rival_race_time_deltas()
         .drop(race_id)
         .drop(constructor_id)
         .groupBy(driver_id, rival_id)
-        .count()
+        .sum(laps)
     )
 
     teammate_dictionary = {}
 
-    teammate_counts_rows = [list(row) for row in teammate_counts.collect()]
+    teammate_counts_rows = [list(row) for row in teammate_lap_counts.collect()]
 
     for row in teammate_counts_rows:
         if row[0] not in teammate_dictionary:
@@ -181,6 +181,7 @@ def get_rival_race_time_deltas() -> DataFrame:
     - `rivalId`
     - `constructorId`
     - `deltaToTeammateMillis`
+    - `laps`
 
     :return: Dataframe with results (not persisted)
     """
@@ -256,17 +257,60 @@ def get_rival_race_time_deltas() -> DataFrame:
                 col(rival_id),
                 col(constructor_id),
                 col(delta_to_teammate_milliseconds))
+        .join(comparable_driver_laps_completed, [race_id, constructor_id, driver_id])
     )
 
     return delta_to_rival_milliseconds
 
 
-# def get_mean_teammate_delta(id_one: int, id_two: int) -> float:
-#     rival_race_time_deltas = get_rival_race_time_deltas().persist()
+def get_mean_teammate_lap_delta(id_one: int, id_two: int) -> Optional[float]:
+    """
+    Calculates the mean delta per lap (in milliseconds) between two direct teammates.
+
+    Negative if `id_one` is faster on average than `id_two`.
+    Returns `None` if the two ids have never been direct teammates.
+
+    :param id_one: the `driverId` of the first teammate
+    :param id_two: the `driverId` of the second teammate
+    :return: the mean race delta between
+    """
+
+    delta_per_lap = "deltaPerLap"
+
+    rival_race_time_deltas = (
+        get_rival_race_time_deltas()
+        .drop(race_id)
+        .drop(constructor_id)
+        .groupBy(driver_id, rival_id)
+        .sum(delta_to_teammate_milliseconds, laps)
+        .withColumn(delta_per_lap,
+                    col(f"sum({delta_to_teammate_milliseconds})") / col(f"sum({laps})"))
+        .drop(f"sum({delta_to_teammate_milliseconds})")
+        .drop(f"sum({laps})")
+        .persist()
+    )
+
+    delta_row = (
+        rival_race_time_deltas
+        .where((col(driver_id) == id_one) & (col(rival_id) == id_two))
+    )
+
+    collected_rows = delta_row.collect()
+
+    if len(collected_rows) < 1:
+        return None
+
+    first_row = list(collected_rows[0])
+
+    if len(first_row) < 3:
+        raise Exception("Not enough columns")
+
+    return first_row[2]
 
 
 if __name__ == "__main__":
     # get_rival_race_time_deltas().show()
     # get_race_teammate_rivals().show()
-    get_df_from_file(drivers_filename).show()
-    print(teammate_paths(1, 4))
+    # get_df_from_file(drivers_filename).show()
+    # print(teammate_paths(1, 4))
+    print(get_mean_teammate_lap_delta(1, 3))
