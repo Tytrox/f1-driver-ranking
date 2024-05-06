@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     position_lists = {}
 
-    for _ in range(100):
+    for _ in range(1000):
         shuffle(ids)
         sort_driver_ids(ids)
 
@@ -55,5 +55,7 @@ if __name__ == "__main__":
 
     mean_positions.sort(key=lambda x: x[1])
 
-    print(list(map(lambda x: driver_id_to_reference(x[0]), mean_positions)))
-    print(list(map(lambda x: x[1], mean_positions)))
+    drivers = list(map(lambda x: driver_id_to_reference(x[0]), mean_positions))
+    mean_positions = list(map(lambda x: x[1], mean_positions))
+
+    print(list(zip(drivers, mean_positions)))
