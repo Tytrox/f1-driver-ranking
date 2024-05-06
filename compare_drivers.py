@@ -26,8 +26,8 @@ def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
     Calculates all the teammates of a given `driverId`, and how many
     times they have been teammates.
 
-    :return: Dict, indexed by `driverId`, value of Dict, indexed by teammate `driverId`,
-             value of the number of laps they have been teammates.
+    :return: Dict, indexed by `driverId`, value of Dict, indexed by teammate
+             `driverId`, value of the number of laps they have been teammates.
     """
 
     teammate_lap_counts = (
@@ -52,20 +52,21 @@ def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
     return teammate_dictionary
 
 
-def teammate_paths(from_id: int, to_id: int, additional_depth=1) -> List[List[int]]:
+def teammate_paths(from_id: int, to_id: int, additional_depth=1) \
+        -> List[List[int]]:
     """
-    Returns all paths in the relation graph of teammates (the `get_all_driver_teammates`
-    dictionary) between two drivers, which have length `additional_depth` more than the
-    shortest paths.
+    Returns all paths in the relation graph of teammates (the
+    `get_all_driver_teammates` dictionary) between two drivers, which have
+    length `additional_depth` more than the shortest paths.
 
-    Returns a list of paths, which are sequential lists of `driverId` teammates,
+    Returns a list of paths, which are sequential lists of `driverId` teammates
     ending in the `to_id` provided. Paths are guaranteed to be the same length.
     If no path exists, returns an empty list.
 
     :param from_id: the `driverId` of the origin teammate
     :param to_id: the `driverId` of the destination teammate
-    :param additional_depth: the quantity to add to the shortest path length when calculating
-                             maximum path depth
+    :param additional_depth: the quantity to add to the shortest path length
+                             when calculating maximum path depth
     :return: All shortest length paths between the two drivers
     """
 
@@ -112,7 +113,7 @@ def teammate_paths(from_id: int, to_id: int, additional_depth=1) -> List[List[in
                 success_paths.append(path)
                 rival_missing = False
 
-            # Else add new paths to explore if not yet found a rival or reached max depth
+            # Else add new paths to explore
             elif rival_missing or extra_depth_visits <= additional_depth:
                 next_visited_teammates = next_visited_teammates.union(
                     set(teammate_dictionary[last_teammate].keys()))
@@ -132,18 +133,20 @@ def teammate_paths(from_id: int, to_id: int, additional_depth=1) -> List[List[in
 
 
 @lru_cache(maxsize=10000)
-def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[float, float]]:
+def mean_direct_teammate_lap_delta(id_one: int, id_two: int) \
+        -> Optional[Tuple[float, float]]:
     """
-    Calculates the number of laps the two drivers were direct teammates and the mean delta per
-    lap (in milliseconds) between them.
+    Calculates the number of laps the two drivers were direct teammates and
+    the mean delta per lap (in milliseconds) between them.
 
     Mean delta negative if `id_one` is faster on average than `id_two`.
     Returns `None` if the two ids have never been direct teammates.
 
     :param id_one: the `driverId` of the first teammate
     :param id_two: the `driverId` of the second teammate
-    :return: A tuple of the number of laps both teammates completed together and the mean lap
-             delta between teammates, or `None` if they weren't teammates
+    :return: A tuple of the number of laps both teammates completed together
+             and the mean lap delta between teammates, or `None` if they
+             weren't teammates
     """
 
     delta_row = (
@@ -165,16 +168,19 @@ def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[f
 
 
 @cache
-def compare_drivers(id_one: int, id_two: int, additional_depth=1) -> Optional[float]:
+def compare_drivers(id_one: int, id_two: int, additional_depth=1) \
+        -> Optional[float]:
     """
-    Compares two drivers by calculating an average of mean racing lap time delta between
-    shared teammates, weighted by the minimum number of laps shared between teammates.
+    Compares two drivers by calculating an average of mean racing lap time
+    delta between shared teammates, weighted by the minimum number of laps
+    shared between teammates.
 
     :param id_one: the `driverId` of the first driver
     :param id_two: the `driverId` of the second driver
-    :param additional_depth: the number of extra intermediate teammates allowed above the minimum
-    :return: A weighted average of mean lap-time deltas between teammates, or `None` if there is
-             no common teammate
+    :param additional_depth: the number of extra intermediate teammates
+                             allowed above the minimum
+    :return: A weighted average of mean lap-time deltas between teammates,
+             or `None` if there is no common teammate
     """
 
     paths = teammate_paths(id_one, id_two, additional_depth=additional_depth)
@@ -261,5 +267,6 @@ if __name__ == "__main__":
     to_number = "norris"
     depth_extension = 1
 
-    print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
+    print(compare_drivers(driver_reference_to_id(from_number),
+                          driver_reference_to_id(to_number),
                           additional_depth=depth_extension))

@@ -153,7 +153,8 @@ def get_rival_race_time_deltas() -> DataFrame:
                 col(rival_id),
                 col(constructor_id),
                 col(delta_to_teammate_milliseconds))
-        .join(comparable_driver_laps_completed, [race_id, constructor_id, driver_id])
+        .join(comparable_driver_laps_completed,
+              [race_id, constructor_id, driver_id])
     )
 
     return delta_to_rival_milliseconds
@@ -180,11 +181,13 @@ def write_teammate_lap_time_deltas() -> None:
         .groupBy(driver_id, rival_id)
         .sum(delta_to_teammate_milliseconds, laps)
         .withColumn(delta_per_lap,
-                    col(f"sum({delta_to_teammate_milliseconds})") / col(f"sum({laps})"))
+                    col(f"sum({delta_to_teammate_milliseconds})") /
+                    col(f"sum({laps})"))
         .drop(f"sum({delta_to_teammate_milliseconds})")
     )
 
-    output_file = join(data_directory(), f"{teammate_lap_delta_filename}.parquet")
+    output_file = join(data_directory(),
+                       f"{teammate_lap_delta_filename}.parquet")
 
     teammate_lap_time_deltas.write.parquet(
         output_file,

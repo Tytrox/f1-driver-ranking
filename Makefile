@@ -10,12 +10,12 @@ venv: requirements.txt create_venv.py
 	./create_venv.py venv requirements.txt
 
 clean:
-	rm current_season_sample_results.csv
+	-rm current_season_sample_results.csv
 
 clean_data:
-	rm -rf data
+	-rm -rf data
 
 clean_venv:
-	rm -rf venv
+	-rm -rf venv
 
 clean_all: clean clean_venv clean_data
