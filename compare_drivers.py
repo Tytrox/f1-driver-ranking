@@ -123,9 +123,12 @@ def teammate_paths(from_id: int, to_id: int, additional_depth=1) -> List[List[in
     success_paths = []
     rival_missing = True
 
+    extra_depth_visits = 0
+
     if to_id in teammate_dictionary[from_id]:
         success_paths.append([to_id])
         rival_missing = False
+        extra_depth_visits += 1
 
     paths = []
 
@@ -135,8 +138,6 @@ def teammate_paths(from_id: int, to_id: int, additional_depth=1) -> List[List[in
     visited_teammates = set(teammate_dictionary[from_id].keys())
     visited_teammates.add(from_id)
     next_visited_teammates = set(visited_teammates)
-
-    extra_depth_visits = 0
 
     while rival_missing or extra_depth_visits <= additional_depth:
 
@@ -324,7 +325,7 @@ def compare_drivers(
         id_one: int,
         id_two: int,
         depth_factor=1,
-        indirection_penalty=0.25) -> Optional[float]:
+        indirection_penalty=0.1) -> Optional[float]:
     """
     Compares two drivers by calculating a weighted average of mean racing lap time delta between
     shared teammates.
@@ -372,12 +373,12 @@ def compare_drivers(
             )
 
             mean_path_delta += next_delta
-            lap_score += next_lap_score
+            lap_score += (next_lap_score * indirection_penalty_multiplier)
 
             previous_teammate = next_teammate
 
         mean_deltas.append(mean_path_delta)
-        lap_scores.append(lap_score * indirection_penalty_multiplier)
+        lap_scores.append(lap_score * (1 / i))
 
     print(mean_deltas)
     print(lap_scores)
@@ -434,14 +435,14 @@ if __name__ == "__main__":
     # for row in get_df_from_file(drivers_filename).collect():
     #     print(row.asDict())
 
-    from_number = "norris"
+    from_number = "hamilton"
     to_number = "sainz"
-    depth_extension = 2
+    depth_extension = 1
 
     print(teammate_paths(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
                          additional_depth=depth_extension))
     print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
                           depth_factor=depth_extension))
 
-    print("done")
+    print("")
     # get_df_from_file("races").show()
