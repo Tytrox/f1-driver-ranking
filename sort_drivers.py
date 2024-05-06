@@ -1,7 +1,8 @@
+from numpy import mean
+
 from compare_drivers import compare_drivers, driver_id_to_reference
 from spark_utilities import get_df_from_file
 from pyspark.sql.functions import col
-from functools import cmp_to_key
 from typing import List
 
 # Data file names
@@ -21,27 +22,38 @@ def fetch_all_driver_ids() -> List[int]:
     return [list(row)[0] for row in drivers]
 
 
-def drivers_comparator(id_one: int, id_two: int) -> int:
-    score = compare_drivers(id_one, id_two)
-    # print(f"{driver_id_to_reference(id_one)} vs {driver_id_to_reference(id_two)} : {score}")
-    return int(score)
-
-
 def sort_driver_ids(id_list: List[int]) -> None:
-    id_list.sort(key=cmp_to_key(drivers_comparator))
+    for _ in range(3):
+        for i in range(len(id_list), 1, -1):
+            for j in range(0, i - 1):
+                if compare_drivers(id_list[j], id_list[j + 1]) > 0:
+                    id_list[j], id_list[j + 1] = id_list[j + 1], id_list[j]
 
 
 if __name__ == "__main__":
     from random import shuffle
+
     ids = [1, 846, 830, 832, 4, 857, 852, 842, 839, 844, 840, 815,
-           817, 858, 855, 848, 822, 847, 807, 825, ]
+           817, 858, 855, 848, 822, 847, 807, 825]
 
-    final = []
+    position_lists = {}
 
-    while len(ids) > 0:
+    for _ in range(100):
         shuffle(ids)
         sort_driver_ids(ids)
-        print(list(map(driver_id_to_reference, ids)))
-        final.append(ids.pop(0))
 
-    print(list(map(driver_id_to_reference, final)))
+        for i, driver in enumerate(ids):
+            if driver not in position_lists:
+                position_lists[driver] = []
+
+            position_lists[driver].append(i)
+
+    mean_positions = []
+
+    for driver in position_lists.keys():
+        mean_positions.append((driver, mean(position_lists[driver])))
+
+    mean_positions.sort(key=lambda x: x[1])
+
+    print(list(map(lambda x: driver_id_to_reference(x[0]), mean_positions)))
+    print(list(map(lambda x: x[1], mean_positions)))

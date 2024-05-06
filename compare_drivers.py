@@ -164,6 +164,7 @@ def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[f
     return first_row[2], first_row[3]
 
 
+@lru_cache
 def compare_drivers(id_one: int, id_two: int, additional_depth=1) -> Optional[float]:
     """
     Compares two drivers by calculating an average of mean racing lap time delta between
@@ -256,8 +257,8 @@ def driver_id_to_reference(driver_id_inp: int) -> Optional[str]:
 
 
 if __name__ == "__main__":
-    from_number = "hamilton"
-    to_number = "sainz"
+    from_number = "alonso"
+    to_number = "norris"
     depth_extension = 1
 
     print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
