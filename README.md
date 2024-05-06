@@ -127,7 +127,7 @@ From [Table 1](#table-1), we can draw the following insights:
 
 ### NOTE:
 
-The reason why a certain driver being faster is not necessarily only due to driver skill - 
+The reason why a certain driver is faster is not necessarily only due to driver skill - 
 see [flaws with this approach](#flaws-with-this-approach).
 
 For example, Bearman has only raced once in F1, with very little practice or experience in an F1
