@@ -17,6 +17,11 @@ def get_df_from_file(filename: str) -> DataFrame:
             "The provided filename does not correspond to a valid path")
 
     if spark is None:
-        spark = SparkSession.builder.getOrCreate()
+        spark = (
+            SparkSession.builder
+            .getOrCreate()
+        )
+
+        spark.sparkContext.setLogLevel("ERROR")
 
     return spark.read.parquet(filepath)
