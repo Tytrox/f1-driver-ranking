@@ -115,7 +115,7 @@ different average performance to another, we can gain some (perhaps flawed) insi
 
 ## Results
 
-From [Table 1](#table-1), we can draw the following insights:
+From [Table 1](#table-1), we can draw the following insights about the current season's F1 drivers:
 
 1. Max Verstappen is consistently faster than all other drivers.
 2. Alonso and Norris are the next fastest, with Alonso probably being slightly faster than Norris
