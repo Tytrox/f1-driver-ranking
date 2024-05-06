@@ -1,7 +1,7 @@
 
 data: venv csv_data convert_csv_to_parquet.py
 	test -d data || mkdir data
-	source venv/bin/activate; python3 convert_csv_to_parquet.py csv_data; deactivate
+	source venv/bin/activate; python3 convert_csv_to_parquet.py csv_data; python3 calculate_teammate_deltas.py; deactivate
 
 venv: requirements.txt create_venv.py
 	./create_venv.py venv requirements.txt
