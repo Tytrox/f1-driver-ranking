@@ -5,12 +5,15 @@ from spark_utilities import get_df_from_file
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col
 from typing import Dict, List, Optional, Tuple
+from convert_csv_to_parquet import data_directory
+from os.path import join
 
 # Data file names
 drivers_filename: str = "drivers"
 lap_times_filename: str = "lap_times"
 race_results_filename: str = "results"
 races_filename: str = "races"
+teammate_lap_delta_filename: str = "teammate_lap_deltas"
 
 # Column names
 race_id: str = "raceId"
@@ -21,6 +24,7 @@ laps: str = "laps"
 lap: str = "lap"
 number: str = "number"
 driver_ref = "driverRef"
+delta_per_lap = "deltaPerLap"
 milliseconds: str = "milliseconds"
 delta_to_teammate_milliseconds: str = "deltaToTeammateMillis"
 
@@ -274,6 +278,39 @@ def get_rival_race_time_deltas() -> DataFrame:
     return delta_to_rival_milliseconds
 
 
+def write_teammate_lap_time_deltas() -> None:
+    """
+    Calculates and writes to parquet the mean lap time delta between teammates.
+
+    Introduces one column:
+    - `deltaPerLap`: the mean delta
+
+    Resulting Dataframe has the following columns:
+    - `driverId`
+    - `rivalId`
+    - `deltaPerLap`
+    - `laps`
+    """
+
+    teammate_lap_time_deltas = (
+        get_rival_race_time_deltas()
+        .drop(race_id)
+        .drop(constructor_id)
+        .groupBy(driver_id, rival_id)
+        .sum(delta_to_teammate_milliseconds, laps)
+        .withColumn(delta_per_lap,
+                    col(f"sum({delta_to_teammate_milliseconds})") / col(f"sum({laps})"))
+        .drop(f"sum({delta_to_teammate_milliseconds})")
+    )
+
+    output_file = join(data_directory(), f"{teammate_lap_delta_filename}.parquet")
+
+    teammate_lap_time_deltas.write.parquet(
+        output_file,
+        compression="zstd", mode="overwrite")
+
+
+
 @lru_cache
 def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[float, float]]:
     """
@@ -289,22 +326,8 @@ def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[f
              delta between teammates, or `None` if they weren't teammates
     """
 
-    delta_per_lap = "deltaPerLap"
-
-    rival_race_time_deltas = (
-        get_rival_race_time_deltas()
-        .drop(race_id)
-        .drop(constructor_id)
-        .groupBy(driver_id, rival_id)
-        .sum(delta_to_teammate_milliseconds, laps)
-        .withColumn(delta_per_lap,
-                    col(f"sum({delta_to_teammate_milliseconds})") / col(f"sum({laps})"))
-        .drop(f"sum({delta_to_teammate_milliseconds})")
-        .persist()
-    )
-
     delta_row = (
-        rival_race_time_deltas
+        get_df_from_file(teammate_lap_delta_filename)
         .where((col(driver_id) == id_one) & (col(rival_id) == id_two))
     )
 
@@ -430,19 +453,31 @@ def driver_id_to_reference(id: int) -> Optional[str]:
 
 
 if __name__ == "__main__":
+    write_teammate_lap_time_deltas()
     # get_rival_race_time_deltas().show()
     # get_race_teammate_rivals().show()
     # for row in get_df_from_file(drivers_filename).collect():
     #     print(row.asDict())
-
-    from_number = "hamilton"
-    to_number = "sainz"
-    depth_extension = 1
-
-    print(teammate_paths(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
-                         additional_depth=depth_extension))
-    print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
-                          depth_factor=depth_extension))
+    #
+    # from timeit import default_timer as timer
+    #
+    # from_number = "hamilton"
+    # to_number = "sainz"
+    # depth_extension = 1
+    #
+    #
+    # print(teammate_paths(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
+    #                      additional_depth=depth_extension))
+    #
+    # start = timer()
+    # print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
+    #                       depth_factor=depth_extension))
+    # print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
+    #                       depth_factor=depth_extension))
+    # print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
+    #                       depth_factor=depth_extension))
+    # end = timer()
+    # print(end - start)
 
     print("")
     # get_df_from_file("races").show()
