@@ -33,12 +33,13 @@ def sort_driver_ids(id_list: List[int]) -> None:
 if __name__ == "__main__":
     from random import shuffle
 
+    # current season driverIds
     ids = [1, 846, 830, 832, 4, 857, 852, 842, 839, 844, 840, 815,
-           817, 858, 855, 848, 822, 847, 807, 825]
+           817, 858, 855, 848, 822, 847, 807, 825, 860]
 
     position_lists = {}
 
-    for _ in range(1000):
+    for _ in range(100000):
         shuffle(ids)
         sort_driver_ids(ids)
 
@@ -58,4 +59,9 @@ if __name__ == "__main__":
     drivers = list(map(lambda x: driver_id_to_reference(x[0]), mean_positions))
     mean_positions = list(map(lambda x: x[1], mean_positions))
 
-    print(list(zip(drivers, mean_positions)))
+    zipped_list = list(zip(drivers, mean_positions))
+
+    print("driverRef,meanPosition")
+
+    for driver, mean_position in zipped_list:
+        print(f"{driver},{mean_position}")

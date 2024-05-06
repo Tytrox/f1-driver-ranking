@@ -131,7 +131,7 @@ def teammate_paths(from_id: int, to_id: int, additional_depth=1) -> List[List[in
     return success_paths
 
 
-@lru_cache
+@lru_cache(maxsize=10000)
 def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[float, float]]:
     """
     Calculates the number of laps the two drivers were direct teammates and the mean delta per
@@ -164,7 +164,7 @@ def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[f
     return first_row[2], first_row[3]
 
 
-@lru_cache
+@cache
 def compare_drivers(id_one: int, id_two: int, additional_depth=1) -> Optional[float]:
     """
     Compares two drivers by calculating an average of mean racing lap time delta between
