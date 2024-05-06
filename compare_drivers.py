@@ -1,14 +1,16 @@
-from functools import cache, lru_cache
+import numpy as np
 
+from functools import cache, lru_cache
 from spark_utilities import get_df_from_file
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 # Data file names
 drivers_filename: str = "drivers"
 lap_times_filename: str = "lap_times"
 race_results_filename: str = "results"
+races_filename: str = "races"
 
 # Column names
 race_id: str = "raceId"
@@ -17,6 +19,8 @@ rival_id: str = "rivalId"
 constructor_id: str = "constructorId"
 laps: str = "laps"
 lap: str = "lap"
+number: str = "number"
+driver_ref = "driverRef"
 milliseconds: str = "milliseconds"
 delta_to_teammate_milliseconds: str = "deltaToTeammateMillis"
 
@@ -91,7 +95,7 @@ def get_all_driver_teammates() -> Dict[int, Dict[int, int]]:
     return teammate_dictionary
 
 
-def teammate_paths(from_id: int, to_id: int, additional_depth=4) -> List[List[int]]:
+def teammate_paths(from_id: int, to_id: int, additional_depth=1) -> List[List[int]]:
     """
     Returns all paths in the relation graph of teammates (the `get_all_driver_teammates`
     dictionary) between two drivers, which have length `additional_depth` more than the
@@ -110,11 +114,17 @@ def teammate_paths(from_id: int, to_id: int, additional_depth=4) -> List[List[in
 
     teammate_dictionary = get_all_driver_teammates()
 
+    if from_id not in teammate_dictionary:
+        raise Exception(f"`{from_id}` is not a valid `driverId`")
+
+    if to_id not in teammate_dictionary:
+        raise Exception(f"`{to_id}` is not a valid `driverId`")
+
     success_paths = []
     rival_missing = True
 
     if to_id in teammate_dictionary[from_id]:
-        success_paths.append([[to_id]])
+        success_paths.append([to_id])
         rival_missing = False
 
     paths = []
@@ -264,16 +274,18 @@ def get_rival_race_time_deltas() -> DataFrame:
 
 
 @lru_cache
-def get_mean_teammate_lap_delta(id_one: int, id_two: int) -> Optional[float]:
+def mean_direct_teammate_lap_delta(id_one: int, id_two: int) -> Optional[Tuple[float, float]]:
     """
-    Calculates the mean delta per lap (in milliseconds) between two direct teammates.
+    Calculates the number of laps the two drivers were direct teammates and the mean delta per
+    lap (in milliseconds) between them.
 
-    Negative if `id_one` is faster on average than `id_two`.
+    Mean delta negative if `id_one` is faster on average than `id_two`.
     Returns `None` if the two ids have never been direct teammates.
 
     :param id_one: the `driverId` of the first teammate
     :param id_two: the `driverId` of the second teammate
-    :return: the mean race delta between
+    :return: A tuple of the number of laps both teammates completed together and the mean lap
+             delta between teammates, or `None` if they weren't teammates
     """
 
     delta_per_lap = "deltaPerLap"
@@ -287,7 +299,6 @@ def get_mean_teammate_lap_delta(id_one: int, id_two: int) -> Optional[float]:
         .withColumn(delta_per_lap,
                     col(f"sum({delta_to_teammate_milliseconds})") / col(f"sum({laps})"))
         .drop(f"sum({delta_to_teammate_milliseconds})")
-        .drop(f"sum({laps})")
         .persist()
     )
 
@@ -303,15 +314,134 @@ def get_mean_teammate_lap_delta(id_one: int, id_two: int) -> Optional[float]:
 
     first_row = list(collected_rows[0])
 
-    if len(first_row) < 3:
+    if len(first_row) < 4:
         raise Exception("Not enough columns")
 
-    return first_row[2]
+    return first_row[2], first_row[3]
+
+
+def compare_drivers(
+        id_one: int,
+        id_two: int,
+        depth_factor=1,
+        indirection_penalty=0.25) -> Optional[float]:
+    """
+    Compares two drivers by calculating a weighted average of mean racing lap time delta between
+    shared teammates.
+
+    :param id_one: the `driverId` of the first driver
+    :param id_two: the `driverId` of the second driver
+    :param depth_factor: the limit of extra nodes to search
+    :param indirection_penalty: the multiplier to de-value longer teammate chains
+    :return: A weighted average of mean lap-time deltas between teammates, or `None` if there is
+             no common teammate
+    """
+
+    paths = teammate_paths(id_one, id_two, depth_factor)
+    mean_deltas = []
+    lap_scores = []
+
+    if len(paths) < 1:
+        return None
+
+    min_path_length = min(map(len, paths))
+
+    for path in paths:
+
+        path = list(path)
+
+        mean_path_delta = 0
+        lap_score = 0
+        indirection_penalty_multiplier = 1  # The multiplier penalty applied to lap score
+
+        previous_teammate = id_one
+
+        i = 0
+
+        while len(path) > 0:
+            i += 1
+            next_teammate = path.pop(0)
+
+            if next_teammate is not id_two or i > min_path_length:
+                indirection_penalty_multiplier *= indirection_penalty
+
+            next_lap_score, next_delta = (
+                mean_direct_teammate_lap_delta(
+                    previous_teammate,
+                    next_teammate)
+            )
+
+            mean_path_delta += next_delta
+            lap_score += next_lap_score
+
+            previous_teammate = next_teammate
+
+        mean_deltas.append(mean_path_delta)
+        lap_scores.append(lap_score * indirection_penalty_multiplier)
+
+    print(mean_deltas)
+    print(lap_scores)
+
+    weighted_average_delta = np.average(mean_deltas, weights=lap_scores)
+    return weighted_average_delta
+
+
+def driver_reference_to_id(driver_reference: str) -> Optional[int]:
+    """
+    Looks up the `driverId` from `driverRef`
+
+    :param driver_reference: `driverRef`
+    :return: first matching `driverId` if present, or None
+    """
+    driver = (
+        get_df_from_file(drivers_filename)
+        .persist()
+        .where(col(driver_ref) == driver_reference)
+    )
+
+    rows = driver.collect()
+
+    if len(rows) < 1:
+        return None
+
+    return rows[0].asDict()[driver_id]
+
+
+def driver_id_to_reference(id: int) -> Optional[str]:
+    """
+    Looks up the `driverRef` from `driverId`
+
+    :param id: `driverId`
+    :return: first matching `driverRef` if present, or None
+    """
+    driver = (
+        get_df_from_file(drivers_filename)
+        .persist()
+        .where(col(driver_id) == id)
+    )
+
+    rows = driver.collect()
+
+    if len(rows) < 1:
+        return None
+
+    return rows[0].asDict()[driver_ref]
 
 
 if __name__ == "__main__":
     # get_rival_race_time_deltas().show()
     # get_race_teammate_rivals().show()
-    # get_df_from_file(drivers_filename).show()
-    # print(teammate_paths(1, 4))
-    print(get_mean_teammate_lap_delta(1, 3))
+    # for row in get_df_from_file(drivers_filename).collect():
+    #     print(row.asDict())
+
+    from_number = "norris"
+    to_number = "sainz"
+    depth_extension = 2
+
+    print(teammate_paths(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
+                         additional_depth=depth_extension))
+    print(compare_drivers(driver_reference_to_id(from_number), driver_reference_to_id(to_number),
+                          depth_factor=depth_extension))
+
+    print("done")
+    # get_df_from_file("races").show()
