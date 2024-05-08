@@ -57,7 +57,7 @@ assumptions:
 3. They are both attempting to finish the race as fast as possible.
 
 These are clearly incorrect assumptions (as 
-[discussed below](#flaws-with-this-approach), however I did not have the data 
+[discussed below](#flaws-with-this-approach)), however I did not have the data 
 (or time) to account for when these assumptions are violated.
 
 For each race, I then only compare the laps all drivers of the same team completed.
